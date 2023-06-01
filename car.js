@@ -12,8 +12,13 @@ class Car{
         this.angle = 0;
         this.damaged =false;
 
+        this.useBrain = controlType == "AI";    //the brain the car has is in use for AI
+
         if(controlType != "DUMMY"){
             this.sensor = new Sensor(this); //only OUR car has sensors
+            this.brain = new NeuralNetwork(
+                [this.sensor.rayCount,6,4]//4 for forward,left,back,right, 1 for hidden 1 for output --> 6
+            );
         }
 
         this.controls = new Controls(controlType);
@@ -27,8 +32,20 @@ class Car{
         }
         if(this.sensor){    //only sensor for OUR car
         this.sensor.update(roadBorders,traffic);    //so update in sensor js can use roadborders to sense them
-        }
-    }
+        const offsets = this.sensor.readings.map(   //readings have an x,y and offset to where reading was
+            s=>s==null?0:1-s.offset //maybe offsets instead
+        );       //if null return 0 as no reading, otherwise 1 minues sensor offset so our neurons receive low vaulues if object is far away
+            const outputs = NeuralNetwork.feedForward(offsets,this.brain);//high values close to 1 if object is close
+            //just light pointing a flashlight at wall. light is stronger when closer to the wall
+
+            if(this.useBrain){  //giving AI car its own movement
+                this.controls.forward = outputs[0];
+                this.controls.left = outputs[1];
+                this.controls.right = outputs[2];
+                this.controls.reverse = outputs[3];
+            }
+        }       
+    }           
 
     #assessDamage(roadBorders,traffic){
         for(let i =0;i<roadBorders.length;i++){ //colliding with road borders, will recieve "damage"
@@ -103,7 +120,7 @@ class Car{
         this.x -= Math.sin(this.angle)*this.speed;   //move towards right, - -> is right on unit circle
         this.y -= Math.cos(this.angle)*this.speed;  
     }
-    draw(ctx,color){
+    draw(ctx,color,drawSensor=false){
         if(this.damaged){       //testing polygon intersect function
             ctx.fillStyle = "gray";
         }
@@ -116,7 +133,7 @@ class Car{
             ctx.lineTo(this.polygon[i].x,this.polygon[i].y);    //lineto connects a line
         }
         ctx.fill(); //fill the shape created
-        if(this.sensor){
+        if(this.sensor && drawSensor){
         this.sensor.draw(ctx);
         }
     }
